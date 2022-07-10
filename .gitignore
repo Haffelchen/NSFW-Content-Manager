@@ -1,0 +1,6 @@
+/node_modules/
+/logs/
+*.vs
+*.lnk
+*.env
+credentials.json

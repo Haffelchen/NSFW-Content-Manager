@@ -1,0 +1,38 @@
+{
+  "dependencies": {
+    "@discordjs/rest": "^0.5.0",
+    "@google/clasp": "^2.4.1",
+    "discord-api-types": "^0.36.1",
+    "discord.js": "^13.8.1",
+    "dotenv": "^16.0.1",
+    "enmap": "^5.9.0",
+    "google-spreadsheet": "^3.3.0",
+    "googleapis": "^104.0.0",
+    "mv": "^2.1.1",
+    "path": "^0.12.7",
+    "winston": "^3.8.1"
+  },
+  "name": "nsfw-content-manager",
+  "version": "1.0.0",
+  "description": "A Discord Bot to post NSFW Content and manage user requests",
+  "main": "NSFW-Content-Manager.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Haffelchen/NSFW-Content-Manager.git"
+  },
+  "keywords": [
+    "manage",
+    "nsfw",
+    "post",
+    "requests"
+  ],
+  "author": "Haffel",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Haffelchen/NSFW-Content-Manager/issues"
+  },
+  "homepage": "https://github.com/Haffelchen/NSFW-Content-Manager#readme"
+}
