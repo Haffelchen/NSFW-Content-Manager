@@ -1,6 +1,6 @@
 const fs = require('fs');
 const { MessageEmbed } = require('discord.js');
-const client = require('../NSFW-Content-Manager').client
+const client = require('./NSFW-Content-Manager').client
 const logger = require('./logger');
 const mv = require('mv');
 
@@ -32,6 +32,7 @@ async function post() {
     const postAmount = parseInt(process.env.POSTS_PER_CHAT);
     const chatsAndPaths = process.env.CONTENT_CHATS.split(";");
     const moveToAfterPost = process.env.POSTED_PATH;
+    const moveToAfterFail = process.env.FAILED_PATH;
     const contentToPostPath = process.env.CONTENT_PATH;
 
     for (let i = 0; i < chatsAndPaths.length; i++) {
@@ -48,6 +49,7 @@ async function post() {
                 const pathIndex = Math.floor(Math.random() * contentPaths.length);
                 let contentPath = contentPaths[pathIndex];
                 const postedPath = contentPath + moveToAfterPost;
+                const failedPath = contentPath + moveToAfterFail;
                 contentPath = contentPath + contentToPostPath;
                 const dirents = fs.readdirSync(contentPath, { withFileTypes: true });
                 const allFiles = dirents
@@ -61,9 +63,18 @@ async function post() {
                         }
                     }
                 });
+                
+                fs.mkdir(failedPath, function (err) {
+                    if (err) {
+                        if (err.code !== 'EEXIST') {
+                            logger.log.error(err);
+                        }
+                    }
+                });
 
                 for (let j = 0; j < allFiles.length; j++) {
                     let file = allFiles[j];
+                    let fileSuccess = true;
 
                     if (posted < postAmount * chatIds.length) {
                         for (let k = 0; k < chatIds.length; k++) {
@@ -75,16 +86,25 @@ async function post() {
                                     attachment: contentPath + "/" + file,
                                     name: file
                                 }]
-                            }).then(posted++).catch(err => { logger.log.error(err); posted--; });
+                            }).then(posted++).catch(err => { logger.log.error(err); posted--; fileSuccess = false; });
                         }
                         
-                        mv(contentPath + "/" + file, postedPath + "/" + file, function (err) {
-                            if (err) {
-                                logger.log.error(err);
-                            }
-                        });
+                        if (fileSuccess) {
+                            mv(contentPath + "/" + file, postedPath + "/" + file, function (err) {
+                                if (err) {
+                                    logger.log.error(err);
+                                }
+                            });
+                        } else {
+                            mv(contentPath + "/" + file, failedPath + "/" + file, function (err) {
+                                if (err) {
+                                    logger.log.error(err);
+                                }
+                            });
+                        }
+                        
                     } else {
-                        break;
+                        nextOne = true;
                     }
                 }
                 
