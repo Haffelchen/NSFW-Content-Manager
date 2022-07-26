@@ -64,17 +64,10 @@ async function post() {
                     }
                 });
                 
-                fs.mkdir(failedPath, function (err) {
-                    if (err) {
-                        if (err.code !== 'EEXIST') {
-                            logger.log.error(err);
-                        }
-                    }
-                });
-
                 for (let j = 0; j < allFiles.length; j++) {
                     let file = allFiles[j];
                     let fileSuccess = true;
+                    let errorCode;
 
                     if (posted < postAmount * chatIds.length) {
                         for (let k = 0; k < chatIds.length; k++) {
@@ -86,7 +79,7 @@ async function post() {
                                     attachment: contentPath + "/" + file,
                                     name: file
                                 }]
-                            }).then(posted++).catch(err => { logger.log.error(err); posted--; fileSuccess = false; });
+                            }).then(posted++).catch(err => { logger.log.error(err); posted--; fileSuccess = false; errorCode = err.message; });
                         }
                         
                         if (fileSuccess) {
@@ -96,7 +89,15 @@ async function post() {
                                 }
                             });
                         } else {
-                            mv(contentPath + "/" + file, failedPath + "/" + file, function (err) {
+                            fs.mkdir(failedPath + "/" + errorCode, function (err) {
+                                if (err) {
+                                    if (err.code !== 'EEXIST') {
+                                        logger.log.error(err);
+                                    }
+                                }
+                            });
+                            
+                            mv(contentPath + "/" + file, failedPath + "/" + errorCode + "/" + file, function (err) {
                                 if (err) {
                                     logger.log.error(err);
                                 }
@@ -108,7 +109,11 @@ async function post() {
                     }
                 }
                 
-                if (allFiles.length == 0) {
+                const allFilesAfter = dirents
+                    .filter(dirent => dirent.isFile())
+                    .map(dirent => dirent.name);
+                
+                if (allFilesAfter.length == 0) {
                     const embed = new MessageEmbed()
                         .setColor('#fc1303')
                         .setTitle('Content Alert')
@@ -121,13 +126,16 @@ async function post() {
                     
                     for (let j = 0; j < adminChannelIds.length; j++) {
                         const adminChannel = await client.channels.fetch(adminChannelIds[j]);
-                        await adminChannel.send({ embeds: [embed] }).catch(err => logger.log.error(err));
-                        logger.log.info('Folder "' + contentPath + '" is empty');
+                        
+                        if (adminChannel !== null) {
+                            await adminChannel.send({ embeds: [embed] }).catch(err => logger.log.error(err));
+                            logger.log.info('Folder "' + contentPath + '" is empty');
+                        }
                     }
                     
                     contentPaths.splice(pathIndex);
 
-                } else if (allFiles.length < postAmount * parseInt(process.env.MIN_POSTS_CONTAINING)) {
+                } else if (allFilesAfter.length < postAmount * parseInt(process.env.MIN_POSTS_CONTAINING) && allFilesAfter.length == 0) {
                     const embed = new MessageEmbed()
                         .setColor('#fc8403')
                         .setTitle('Content Info')
@@ -149,7 +157,7 @@ async function post() {
             }
         }
         
-        if (posted == 0) {
+        if (posted < postAmount * parseInt(process.env.MIN_POSTS_CONTAINING)) {
             const embed = new MessageEmbed()
                 .setColor('#8a1c00')
                 .setTitle('Content urgent Alert')
