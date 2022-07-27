@@ -2,7 +2,9 @@ const fs = require('fs');
 const { MessageEmbed } = require('discord.js');
 const client = require('./NSFW-Content-Manager').client
 const logger = require('./logger');
+const util = require('util');
 const mv = require('mv');
+const mvPromise = util.promisify(mv);
 
 let continuePosting = true;
 let waitTillPost;
@@ -56,20 +58,18 @@ async function post() {
                     .filter(dirent => dirent.isFile())
                     .map(dirent => dirent.name);
 
-                fs.mkdir(postedPath, function (err) {
-                    if (err) {
-                        if (err.code !== 'EEXIST') {
-                            logger.log.error(err);
-                        }
+                await fs.promises.mkdir(postedPath).catch(err => {
+                    if (err.code !== 'EEXIST') {
+                        logger.log.error(err);
                     }
                 });
                 
                 for (let j = 0; j < allFiles.length; j++) {
-                    let file = allFiles[j];
-                    let fileSuccess = true;
-                    let errorCode;
-
                     if (posted < postAmount * chatIds.length) {
+                        let file = allFiles[j];
+                        let fileSuccess = true;
+                        let errorCode;
+                        
                         for (let k = 0; k < chatIds.length; k++) {
                             const chatId = chatIds[k];
                             
@@ -83,33 +83,22 @@ async function post() {
                         }
                         
                         if (fileSuccess) {
-                            mv(contentPath + "/" + file, postedPath + "/" + file, function (err) {
-                                if (err) {
-                                    logger.log.error(err);
-                                }
-                            });
+                            await mvPromise(contentPath + "/" + file, postedPath + "/" + file).catch(logger.log.error);
                         } else {
-                            fs.mkdir(failedPath + "/" + errorCode, function (err) {
-                                if (err) {
-                                    if (err.code !== 'EEXIST') {
-                                        logger.log.error(err);
-                                    }
+                            await fs.promises.mkdir(failedPath + "/" + errorCode).catch(err => {
+                                if (err.code !== 'EEXIST') {
+                                    logger.log.error(err);
                                 }
                             });
                             
-                            mv(contentPath + "/" + file, failedPath + "/" + errorCode + "/" + file, function (err) {
-                                if (err) {
-                                    logger.log.error(err);
-                                }
-                            });
+                            await mvPromise(contentPath + "/" + file, failedPath + "/" + errorCode + "/" + file).catch(logger.log.error);
                         }
-                        
                     } else {
                         nextOne = true;
                     }
                 }
                 
-                const allFilesAfter = dirents
+                const allFilesAfter = fs.readdirSync(contentPath, { withFileTypes: true })
                     .filter(dirent => dirent.isFile())
                     .map(dirent => dirent.name);
                 
@@ -135,7 +124,7 @@ async function post() {
                     
                     contentPaths.splice(pathIndex);
 
-                } else if (allFilesAfter.length < postAmount * parseInt(process.env.MIN_POSTS_CONTAINING) && allFilesAfter.length == 0) {
+                } else if (allFilesAfter.length < postAmount * parseInt(process.env.MIN_POSTS_CONTAINING)) {
                     const embed = new MessageEmbed()
                         .setColor('#fc8403')
                         .setTitle('Content Info')
@@ -157,7 +146,7 @@ async function post() {
             }
         }
         
-        if (posted < postAmount * parseInt(process.env.MIN_POSTS_CONTAINING)) {
+        if (posted < postAmount * chatIds.length) {
             const embed = new MessageEmbed()
                 .setColor('#8a1c00')
                 .setTitle('Content urgent Alert')
