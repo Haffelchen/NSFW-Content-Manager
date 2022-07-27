@@ -31,6 +31,7 @@ function calculateNextTime() {
 
 async function post() {
     logger.log.info("Posting started...");
+    
     const postAmount = parseInt(process.env.POSTS_PER_CHAT);
     const chatsAndPaths = process.env.CONTENT_CHATS.split(";");
     const moveToAfterPost = process.env.POSTED_PATH;
