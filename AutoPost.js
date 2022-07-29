@@ -7,21 +7,22 @@ const mv = require('mv');
 const mvPromise = util.promisify(mv);
 
 let continuePosting = true;
-let waitTillPost;
+let waitUntilPost;
 
 let startAutoPosting = async function () {
     continuePosting = true;
 
-    waitTillPost = setTimeout(post, calculateNextTime());
+    waitUntilPost = setTimeout(post, calculateNextTime());
 }
 
 function calculateNextTime() {
-    let postAtH = parseInt(process.env.POST_TIME.split(":")[0]);
-    let postAtM = parseInt(process.env.POST_TIME.split(":")[1]);
+    const postAtH = parseInt(process.env.POST_TIME.split(":")[0]);
+    const postAtM = parseInt(process.env.POST_TIME.split(":")[1]);
 
-    let now = new Date();
-    let postAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), postAtH, postAtM, 0, 0);
+    const now = new Date();
+    const postAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), postAtH, postAtM, 0, 0);
     let waitFor = postAt - now;
+    
     while (waitFor < 0) {
         waitFor += parseInt(process.env.POST_INTERVAL_MILLIS);
     }
@@ -32,28 +33,28 @@ function calculateNextTime() {
 async function post() {
     logger.log.info("Posting started...");
     
-    const postAmount = parseInt(process.env.POSTS_PER_CHAT);
+    const postsPerChat = parseInt(process.env.POSTS_PER_CHAT);
     const chatsAndPaths = process.env.CONTENT_CHATS.split(";");
-    const moveToAfterPost = process.env.POSTED_PATH;
-    const moveToAfterFail = process.env.FAILED_PATH;
-    const contentToPostPath = process.env.CONTENT_PATH;
+    const postedFolder = process.env.POSTED_FOLDER;
+    const failedFolder = process.env.FAILED_FOLDER;
+    const contentFolder = process.env.CONTENT_FOLDER;
 
     for (let i = 0; i < chatsAndPaths.length; i++) {
         let chat = chatsAndPaths[i];
 
-        const chatIds = chat.split(",")[0].split("*");
+        const contentChatIds = chat.split(",")[0].split("*");
         const contentPaths = chat.split(",")[1].split("*");
 
         let nextOne = false;
-        let posted = 0;
+        let contentPosted = 0;
 
-        while (!nextOne && posted < postAmount * chatIds.length) {
+        while (!nextOne && contentPosted < postsPerChat * contentChatIds.length) {
             if (contentPaths.length > 0) {
                 const pathIndex = Math.floor(Math.random() * contentPaths.length);
                 let contentPath = contentPaths[pathIndex];
-                const postedPath = contentPath + moveToAfterPost;
-                const failedPath = contentPath + moveToAfterFail;
-                contentPath = contentPath + contentToPostPath;
+                contentPath = contentPath + contentFolder;
+                const postedPath = contentPath + postedFolder;
+                const failedPath = contentPath + failedFolder;
                 const dirents = fs.readdirSync(contentPath, { withFileTypes: true });
                 const allFiles = dirents
                     .filter(dirent => dirent.isFile())
@@ -66,21 +67,21 @@ async function post() {
                 });
                 
                 for (let j = 0; j < allFiles.length; j++) {
-                    if (posted < postAmount * chatIds.length) {
+                    if (contentPosted < postsPerChat * contentChatIds.length) {
                         let file = allFiles[j];
                         let fileSuccess = true;
                         let errorCode;
                         
-                        for (let k = 0; k < chatIds.length; k++) {
-                            const chatId = chatIds[k];
+                        for (let k = 0; k < contentChatIds.length; k++) {
+                            const contentChatId = contentChatIds[k];
                             
-                            let channel = await client.channels.fetch(chatId);
-                            await channel.send({
+                            let contentChannel = await client.channels.fetch(contentChatId);
+                            await contentChannel.send({
                                 files: [{
                                     attachment: contentPath + "/" + file,
                                     name: file
                                 }]
-                            }).then(posted++).catch(err => { logger.log.error(err); posted--; fileSuccess = false; errorCode = err.message; });
+                            }).then(contentPosted++).catch(err => { logger.log.error(err); contentPosted--; fileSuccess = false; errorCode = err.message; });
                         }
                         
                         if (fileSuccess) {
@@ -99,11 +100,11 @@ async function post() {
                     }
                 }
                 
-                const allFilesAfter = fs.readdirSync(contentPath, { withFileTypes: true })
+                const allFilesAfterPost = fs.readdirSync(contentPath, { withFileTypes: true })
                     .filter(dirent => dirent.isFile())
                     .map(dirent => dirent.name);
                 
-                if (allFilesAfter.length == 0) {
+                if (allFilesAfterPost.length == 0) {
                     const embed = new MessageEmbed()
                         .setColor('#fc1303')
                         .setTitle('Content Alert')
@@ -125,11 +126,11 @@ async function post() {
                     
                     contentPaths.splice(pathIndex);
 
-                } else if (allFilesAfter.length < postAmount * parseInt(process.env.MIN_POSTS_CONTAINING)) {
+                } else if (allFilesAfterPost.length < postsPerChat * parseInt(process.env.MIN_POSTS_CONTAINING)) {
                     const embed = new MessageEmbed()
                         .setColor('#fc8403')
                         .setTitle('Content Info')
-                        .setDescription('A folder is going to be empty soon')
+                        .setDescription('A folder is going to be empty soon (' + allFilesAfterPost.length + ")")
                         .addFields(
                             { name: 'Path', value: contentPath, inline: true })
                         .setTimestamp();
@@ -147,21 +148,31 @@ async function post() {
             }
         }
         
-        if (posted < postAmount * chatIds.length) {
+        if (contentPosted < postsPerChat * contentChatIds.length) {
+            let contentChannelNames = "";
+
+            for (let j = 0; j < contentChatIds.length; j++) {
+                const contentChannel = await client.channels.fetch(contentChatIds[j]);
+                contentChannelNames = contentChannelNames + ", " + contentChannel.name;
+            }
+            
+            contentChannelNames = contentChannelNames.replace(', ', '');
+            
             const embed = new MessageEmbed()
                 .setColor('#8a1c00')
                 .setTitle('Content urgent Alert')
-                .setDescription('All folders for channel are empty')
+                .setDescription('All folders for channel(s) are empty')
                 .addFields(
-                    { name: 'Channel', value: chatIds.toString(), inline: true })
+                    { name: 'Channel', value: contentChannelNames, inline: true })
                 .setTimestamp();
 
             const adminChannelIds = process.env.ADMIN_CHAT.split(";");
 
             for (let j = 0; j < adminChannelIds.length; j++) {
                 const adminChannel = await client.channels.fetch(adminChannelIds[j]);
+                
                 await adminChannel.send({ embeds: [embed] }).catch(err => logger.log.error(err));
-                logger.log.info('All folders for channel "' + chatIds.toString() + '" are empty');
+                logger.log.info('All folders for channel(s) "' + contentChannelNames + '" are empty');
             }
 
         }
@@ -172,4 +183,64 @@ async function post() {
     startAutoPosting();
 }
 
+async function countFilesAllContentFolders(responseChannelId) {
+    const chatsAndPaths = process.env.CONTENT_CHATS.split(";");
+    const postAmount = parseInt(process.env.POSTS_PER_CHAT);
+    
+    for (let i = 0; i < chatsAndPaths.length; i++) {
+        let chat = chatsAndPaths[i];
+        
+        const contentChatIds = chat.split(",")[0].split("*");
+        const contentPaths = chat.split(",")[1].split("*");
+        
+        for (let j = 0; j < contentPaths.length; j++) {
+            let contentPath = contentPaths[j];
+
+            const contentFolder = process.env.CONTENT_FOLDER;
+            contentPath = contentPath + contentFolder;
+            const dirents = fs.readdirSync(contentPath, { withFileTypes: true });
+            const allFiles = dirents
+                .filter(dirent => dirent.isFile())
+                .map(dirent => dirent.name);
+            
+            if (allFiles.length == 0) {
+                const embed = new MessageEmbed()
+                    .setColor('#fc1303')
+                    .setTitle('Content Alert')
+                    .setDescription('A folder is empty')
+                    .addFields(
+                        { name: 'Path', value: contentPath, inline: true })
+                    .setTimestamp();
+                
+                const channel = await client.channels.fetch(responseChannelId);
+                await channel.send({ embeds: [embed] }).catch(err => logger.log.error(err));
+
+            } else if (allFiles.length < postAmount * parseInt(process.env.MIN_POSTS_CONTAINING)) {
+                const embed = new MessageEmbed()
+                    .setColor('#fc8403')
+                    .setTitle('Content Info')
+                    .setDescription('A folder is going to be empty soon (' + allFiles.length + ")")
+                    .addFields(
+                        { name: 'Path', value: contentPath, inline: true })
+                    .setTimestamp();
+
+                const channel = await client.channels.fetch(responseChannelId);
+                await channel.send({ embeds: [embed] }).catch(err => logger.log.error(err));
+            } else {
+                const embed = new MessageEmbed()
+                    .setColor('#00de0f')
+                    .setTitle('Content Info')
+                    .setDescription('Currently enough content (' + allFiles.length + ")")
+                    .addFields(
+                        { name: 'Path', value: contentPath, inline: true })
+                    .setTimestamp();
+
+                const channel = await client.channels.fetch(responseChannelId);
+                await channel.send({ embeds: [embed] }).catch(err => logger.log.error(err));
+            }
+        }
+    }
+}
+
 exports.startAutoPosting = startAutoPosting;
+exports.countFilesAllContentFolders = countFilesAllContentFolders;
