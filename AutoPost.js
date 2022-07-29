@@ -105,12 +105,23 @@ async function post() {
                     .map(dirent => dirent.name);
                 
                 if (allFilesAfterPost.length == 0) {
+                    let contentChannelNames = "";
+
+                    for (let j = 0; j < contentChatIds.length; j++) {
+                        const contentChannel = await client.channels.fetch(contentChatIds[j]);
+                        contentChannelNames = contentChannelNames + ", " + contentChannel.name;
+                    }
+
+                    contentChannelNames = contentChannelNames.replace(', ', '');
+                    
                     const embed = new MessageEmbed()
                         .setColor('#fc1303')
                         .setTitle('Content Alert')
                         .setDescription('A folder is empty')
                         .addFields(
                             { name: 'Path', value: contentPath, inline: true })
+                        .addFields(
+                            { name: 'Channel(s)', value: contentChannelNames, inline: true })
                         .setTimestamp();
 
                     const adminChannelIds = process.env.ADMIN_CHAT.split(";");
@@ -127,12 +138,23 @@ async function post() {
                     contentPaths.splice(pathIndex);
 
                 } else if (allFilesAfterPost.length < postsPerChat * parseInt(process.env.MIN_POSTS_CONTAINING)) {
+                    let contentChannelNames = "";
+
+                    for (let j = 0; j < contentChatIds.length; j++) {
+                        const contentChannel = await client.channels.fetch(contentChatIds[j]);
+                        contentChannelNames = contentChannelNames + ", " + contentChannel.name;
+                    }
+
+                    contentChannelNames = contentChannelNames.replace(', ', '');
+                    
                     const embed = new MessageEmbed()
                         .setColor('#fc8403')
                         .setTitle('Content Info')
                         .setDescription('A folder is going to be empty soon (' + allFilesAfterPost.length + ")")
                         .addFields(
                             { name: 'Path', value: contentPath, inline: true })
+                        .addFields(
+                            { name: 'Channel(s)', value: contentChannelNames, inline: true })
                         .setTimestamp();
 
                     const adminChannelIds = process.env.ADMIN_CHAT.split(";");
@@ -163,7 +185,7 @@ async function post() {
                 .setTitle('Content urgent Alert')
                 .setDescription('All folders for channel(s) are empty')
                 .addFields(
-                    { name: 'Channel', value: contentChannelNames, inline: true })
+                    { name: 'Channel(s)', value: contentChannelNames, inline: true })
                 .setTimestamp();
 
             const adminChannelIds = process.env.ADMIN_CHAT.split(";");
@@ -204,35 +226,68 @@ async function countFilesAllContentFolders(responseChannelId) {
                 .map(dirent => dirent.name);
             
             if (allFiles.length == 0) {
+                let contentChannelNames = "";
+
+                for (let j = 0; j < contentChatIds.length; j++) {
+                    const contentChannel = await client.channels.fetch(contentChatIds[j]);
+                    contentChannelNames = contentChannelNames + ", " + contentChannel.name;
+                }
+
+                contentChannelNames = contentChannelNames.replace(', ', '');
+                
                 const embed = new MessageEmbed()
                     .setColor('#fc1303')
                     .setTitle('Content Alert')
                     .setDescription('A folder is empty')
                     .addFields(
                         { name: 'Path', value: contentPath, inline: true })
+                    .addFields(
+                        { name: 'Channel(s)', value: contentChannelNames, inline: false })
                     .setTimestamp();
                 
                 const channel = await client.channels.fetch(responseChannelId);
                 await channel.send({ embeds: [embed] }).catch(err => logger.log.error(err));
 
             } else if (allFiles.length < postAmount * parseInt(process.env.MIN_POSTS_CONTAINING)) {
+                let contentChannelNames = "";
+
+                for (let j = 0; j < contentChatIds.length; j++) {
+                    const contentChannel = await client.channels.fetch(contentChatIds[j]);
+                    contentChannelNames = contentChannelNames + ", " + contentChannel.name;
+                }
+
+                contentChannelNames = contentChannelNames.replace(', ', '');
+                
                 const embed = new MessageEmbed()
                     .setColor('#fc8403')
                     .setTitle('Content Info')
                     .setDescription('A folder is going to be empty soon (' + allFiles.length + ")")
                     .addFields(
                         { name: 'Path', value: contentPath, inline: true })
+                    .addFields(
+                        { name: 'Channel(s)', value: contentChannelNames, inline: false })
                     .setTimestamp();
 
                 const channel = await client.channels.fetch(responseChannelId);
                 await channel.send({ embeds: [embed] }).catch(err => logger.log.error(err));
             } else {
+                let contentChannelNames = "";
+
+                for (let j = 0; j < contentChatIds.length; j++) {
+                    const contentChannel = await client.channels.fetch(contentChatIds[j]);
+                    contentChannelNames = contentChannelNames + ", " + contentChannel.name;
+                }
+
+                contentChannelNames = contentChannelNames.replace(', ', '');
+
                 const embed = new MessageEmbed()
                     .setColor('#00de0f')
                     .setTitle('Content Info')
                     .setDescription('Currently enough content (' + allFiles.length + ")")
                     .addFields(
                         { name: 'Path', value: contentPath, inline: true })
+                    .addFields(
+                        { name: 'Channel(s)', value: contentChannelNames, inline: false })
                     .setTimestamp();
 
                 const channel = await client.channels.fetch(responseChannelId);
