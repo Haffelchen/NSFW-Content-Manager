@@ -6,7 +6,7 @@ module.exports = {
         .setName('count-content')
         .setDescription('Counts how many content is sorted'),
     async execute(interaction) {
+        await interaction.reply("I count those nudes for you daddy");
         await posting.countFilesAllContentFolders(interaction.channel.id);
-        await interaction.reply("Counting done, daddy.");
     },
 };
