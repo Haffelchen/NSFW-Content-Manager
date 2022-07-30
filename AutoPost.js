@@ -51,10 +51,10 @@ async function post() {
         while (!nextOne && contentPosted < postsPerChat * contentChatIds.length) {
             if (contentPaths.length > 0) {
                 const pathIndex = Math.floor(Math.random() * contentPaths.length);
-                let contentPath = contentPaths[pathIndex];
-                contentPath = contentPath + contentFolder;
-                const postedPath = contentPath + postedFolder;
-                const failedPath = contentPath + failedFolder;
+                const contentBasePath = contentPaths[pathIndex];
+                const postedPath = contentBasePath + postedFolder;
+                const failedPath = contentBasePath + failedFolder;
+                const contentPath = contentBasePath + contentFolder;
                 const dirents = fs.readdirSync(contentPath, { withFileTypes: true });
                 const allFiles = dirents
                     .filter(dirent => dirent.isFile())
@@ -121,7 +121,7 @@ async function post() {
                         .addFields(
                             { name: 'Path', value: contentPath, inline: true })
                         .addFields(
-                            { name: 'Channel(s)', value: contentChannelNames, inline: true })
+                            { name: 'Channel(s)', value: contentChannelNames, inline: false })
                         .setTimestamp();
 
                     const adminChannelIds = process.env.ADMIN_CHAT.split(";");
@@ -154,7 +154,7 @@ async function post() {
                         .addFields(
                             { name: 'Path', value: contentPath, inline: true })
                         .addFields(
-                            { name: 'Channel(s)', value: contentChannelNames, inline: true })
+                            { name: 'Channel(s)', value: contentChannelNames, inline: false })
                         .setTimestamp();
 
                     const adminChannelIds = process.env.ADMIN_CHAT.split(";");
